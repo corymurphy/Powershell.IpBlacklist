@@ -20,4 +20,4 @@ $trigger = $task.Triggers | Select-Object -First 1;
 
 $trigger.Repetition.Interval = 'PT1H';
 
-Set-ScheduledTask -InputObject $task;
+Set-ScheduledTask -InputObject $task | Out-Null;
