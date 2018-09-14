@@ -1,8 +1,8 @@
 $configJson = '
     {
         "SmtpServer" : "smtp.gmail.com",
-        "GmailUser" : "thefrongillo@gmail.com",
-        "GmailPassword" : "ChingChong69",
+        "GmailUser" : "",
+        "GmailPassword" : "",
         "SendEmailTo" : "thefronge@gmail.com",
         "Whitelist" : [ "192.168.1.*" ],
         "FailedLoginThresholdCount" : 5,
