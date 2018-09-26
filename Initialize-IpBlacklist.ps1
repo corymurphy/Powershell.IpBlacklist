@@ -42,7 +42,7 @@ $scriptPath = [System.IO.Path]::Combine($installPath.FullName, 'Invoke-IpBlackli
 
 Invoke-WebRequest -Uri:'https://raw.githubusercontent.com/corymurphy/Powershell.IpBlacklist/master/Invoke-IpBlacklistJobCached.ps1' -OutFile:$scriptPath
 
-$working = [System.IO.Path]::Combine($programFilesShortName, $name));
+$working = [System.IO.Path]::Combine($programFilesShortName, $name);
 
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $scriptPath -WorkingDirectory $working;
 
