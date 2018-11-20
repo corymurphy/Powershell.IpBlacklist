@@ -182,6 +182,28 @@ function Set-RdpBlacklistFirewallRule
     return $ruleUpdated;
 }
 
+function Get-RrasPreSharedKeyAuthenticationFailures
+{
+    #4653
+
+    $filter = @{
+        LogName = 'Security';
+        ID = '4653';
+    }
+    $selectedProperties = @(
+        'TimeCreated',
+        @{Name="IpAddress";Expression={ ([xml]($_.ToXml())).SelectSingleNode("//*[@Name='RemoteAddress']").'#text' }}
+    )
+    $events = Get-WinEvent -FilterHashtable $filter | Select-Object -Property $selectedProperties;
+
+    return $events;
+}
+
+function Get-RrasAuthenticationFailures
+{
+    
+}
+
 function Get-AuthenticationFailureEvents
 {
     param
@@ -206,14 +228,21 @@ function Get-AuthenticationFailureEvents
             ID = '4625';
         }
 
-        $events = Get-WinEvent -FilterHashtable $filter | Select-Object -Property $selectedProperties | Where-Object -FilterScript {$_.Status -eq '0xC000006D'}
+        $secEvents = Get-WinEvent -FilterHashtable $filter | Select-Object -Property $selectedProperties | Where-Object -FilterScript {$_.Status -eq '0xC000006D'}
     }
     else
     {
         #$xpath = '*[System[(EventID=4625) and TimeCreated[timediff(@SystemTime) <= 172800000]]]'
         $xpath = "*[System[(EventID=4625)]]";
-        $events = Get-WinEvent -Path $EventLogFilePath -FilterXPath $xpath | Select-Object -Property $selectedProperties | Where-Object -FilterScript {$_.Status -eq '0xC000006D'}
+        $secEvents = Get-WinEvent -Path $EventLogFilePath -FilterXPath $xpath | Select-Object -Property $selectedProperties | Where-Object -FilterScript {$_.Status -eq '0xC000006D'}
     }
+
+    $rrasEvents = Get-RrasPreSharedKeyAuthenticationFailures;
+
+    $events = New-Object -TypeName 'System.Collections.Generic.List[object]';
+
+    $events.AddRange($rrasEvents);
+    $events.AddRange($secEvents);
 
     return $events;
 }
