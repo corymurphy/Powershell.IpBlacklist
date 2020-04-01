@@ -3,7 +3,7 @@ $configJson = '
         "SmtpServer" : "smtp.gmail.com",
         "GmailUser" : "",
         "GmailPassword" : "",
-        "SendEmailTo" : "thefronge@gmail.com",
+        "SendEmailTo" : "",
         "Whitelist" : [ "192.168.1.*" ],
         "FailedLoginThresholdCount" : 5,
         "FailedLoginThresholdInterval" : 60,
