@@ -7,7 +7,7 @@ $configJson = '
         "Whitelist" : [ "192.168.1.*" ],
         "FailedLoginThresholdCount" : 5,
         "FailedLoginThresholdInterval" : 60,
-        "FirewallRuleName" : "IpBlacklist",
+        "FirewallRuleName" : "IpBlocklist",
         "Debug" : "true",
         "DebugFileName" : "debug.log",
         "ReadOnly" : "false"
@@ -73,7 +73,7 @@ function Get-NotificationEmailBody
 {
     param
     (
-        [System.Collections.Generic.List[string]]$IpBlacklist
+        [System.Collections.Generic.List[string]]$IpBlocklist
     )
 
     $sb = New-Object -TypeName 'System.Text.StringBuilder' -ArgumentList 'The following IPs were added to the firewall blocklist';
@@ -81,7 +81,7 @@ function Get-NotificationEmailBody
     $sb.AppendLine('') | Out-Null;
     $sb.AppendLine('') | Out-Null;
 
-    foreach($ip in $IpBlacklist)
+    foreach($ip in $IpBlocklist)
     {
         $sb.AppendLine($ip) | Out-Null;
     }
@@ -89,7 +89,7 @@ function Get-NotificationEmailBody
     return $sb.ToString();
 }
 
-function Get-CurrentBlacklist
+function Get-CurrentBlocklist
 {
     param
     (
@@ -106,7 +106,7 @@ function Get-CurrentBlacklist
     }
 }
 
-function Test-IpBlacklistFirewallRuleExists
+function Test-IpBlocklistFirewallRuleExists
 {
     param
     (
@@ -126,30 +126,30 @@ function Test-IpBlacklistFirewallRuleExists
     return $ruleExists
 }
 
-function Set-RdpBlacklistFirewallRule
+function Set-RdpBlocklistFirewallRule
 {
     param
     (
-        [System.Collections.Generic.List[string]]$IpBlacklist,
+        [System.Collections.Generic.List[string]]$IpBlocklist,
         [string]$FirewallRuleName
     )
 
-    $ruleExists = Test-IpBlacklistFirewallRuleExists -FirewallRuleName:$FirewallRuleName;
+    $ruleExists = Test-IpBlocklistFirewallRuleExists -FirewallRuleName:$FirewallRuleName;
     $ruleUpdated = $false;
 
-    $ruleScope = Get-CurrentBlacklist -FirewallRuleName:$FirewallRuleName;
+    $ruleScope = Get-CurrentBlocklist -FirewallRuleName:$FirewallRuleName;
     #$ruleScope = ($rule | Get-NetFirewallAddressFilter).RemoteAddress;
 
     if($ruleExists)
     {
         if($ruleScope -eq 'Any')
         {
-            Get-NetFirewallRule -DisplayName:$FirewallRuleName | Set-NetFirewallRule -RemoteAddress:$IpBlacklist | Out-Null;
+            Get-NetFirewallRule -DisplayName:$FirewallRuleName | Set-NetFirewallRule -RemoteAddress:$IpBlocklist | Out-Null;
         }
         else
         {
 
-            foreach($ip in $IpBlacklist)
+            foreach($ip in $IpBlocklist)
             {
                 if( -not $ruleScope.Contains($ip) )
                 {
@@ -160,23 +160,23 @@ function Set-RdpBlacklistFirewallRule
             #Ensure that IPs that are already blocked, are not removed when the new set of IPs is defined. 
             foreach($existingIp in $ruleScope)
             {
-                if( -not ($IpBlacklist.Contains($existingIp)) )
+                if( -not ($IpBlocklist.Contains($existingIp)) )
                 {
                     $ruleUpdated = $true;
-                    $IpBlacklist.Add($existingIp);
+                    $IpBlocklist.Add($existingIp);
                 }
             }            
 
             if($ruleUpdated)
             {
-                Get-NetFirewallRule -DisplayName:$FirewallRuleName | Set-NetFirewallRule -RemoteAddress:$IpBlacklist | Out-Null;
+                Get-NetFirewallRule -DisplayName:$FirewallRuleName | Set-NetFirewallRule -RemoteAddress:$IpBlocklist | Out-Null;
             }
         }
     }
     else
     {
         $ruleUpdated = $true;
-        New-NetFirewallRule -PolicyStore:'PersistentStore' -DisplayName:'IpBlacklist' -RemoteAddress:$IpBlacklist -Action Block | Out-Null;
+        New-NetFirewallRule -PolicyStore:'PersistentStore' -DisplayName:'IpBlocklist' -RemoteAddress:$IpBlocklist -Action Block | Out-Null;
     }
 
     return $ruleUpdated;
@@ -281,18 +281,18 @@ function Invoke-RdpIpRestrictionJob
 
     if([bool]($Config.Debug))
     {
-        Out-File -FilePath $Config.DebugFileName -InputObject ('IP Blacklist job started at {0}' -f [datetime]::Now) -Append;
+        Out-File -FilePath $Config.DebugFileName -InputObject ('IP Blocklist job started at {0}' -f [datetime]::Now) -Append;
     }
 
     $start = [datetime]::Now;
 
-    $ipBlacklist = New-Object -TypeName 'System.Collections.Generic.List[string]'
+    $ipBlocklist = New-Object -TypeName 'System.Collections.Generic.List[string]'
     
     $events = Get-AuthenticationFailureEvents -Config:$Config -EventLogFilePath:$EventLogFilePath
 
-    $currentBlacklist = Get-CurrentBlacklist -FirewallRuleName:$Config.FirewallRuleName;
+    $currentBlocklist = Get-CurrentBlocklist -FirewallRuleName:$Config.FirewallRuleName;
 
-    $blacklistUpdated = $false;
+    $BlocklistUpdated = $false;
 
     $whitelist = Get-IpWhitelist -Config:$Config;
 
@@ -329,13 +329,13 @@ function Invoke-RdpIpRestrictionJob
                 $iPsWithinThreshold = ($eventsWithinThreshhold.IpAddress | Where-Object -FilterScript {$_ -eq $ip}).Count;
                 if($iPsWithinThreshold -ge $Config.FailedLoginThresholdCount)
                 {
-                    if( (-not $ipBlacklist.Contains($ip)) -and (-not $whitelist.Contains($ip)) -and (-not $currentBlacklist.Contains($ip) ) )
+                    if( (-not $ipBlocklist.Contains($ip)) -and (-not $whitelist.Contains($ip)) -and (-not $currentBlocklist.Contains($ip) ) )
                     {
                         try
                         {
-                            $blacklistUpdated = $true;
+                            $BlocklistUpdated = $true;
                             [ipaddress]$ip | Out-Null;
-                            $ipBlacklist.Add($ip);
+                            $ipBlocklist.Add($ip);
                         }
                         catch
                         {
@@ -350,15 +350,15 @@ function Invoke-RdpIpRestrictionJob
 
     if([bool]($Config.Debug))
     {
-        Out-File -FilePath $Config.DebugFileName -InputObject (Convert-GenericListToString -List:$ipBlacklist) -Append;
+        Out-File -FilePath $Config.DebugFileName -InputObject (Convert-GenericListToString -List:$ipBlocklist) -Append;
     }
 
-    if( -not ($ipBlacklist -eq $null -or $ipBlacklist.Count -lt 1) )
+    if( -not ($ipBlocklist -eq $null -or $ipBlocklist.Count -lt 1) )
     {
         
         if ( $readonly -eq $false)
         {
-            $ruleUpdated = Set-RdpBlacklistFirewallRule -IpBlacklist:$ipBlacklist -FirewallRuleName:$Config.FirewallRuleName;
+            $ruleUpdated = Set-RdpBlocklistFirewallRule -IpBlocklist:$ipBlocklist -FirewallRuleName:$Config.FirewallRuleName;
         }
         
         if($ruleUpdated)
@@ -368,11 +368,11 @@ function Invoke-RdpIpRestrictionJob
 
             $mailArgs = @{
                 SmtpServer = $Config.SmtpServer;
-                Body = (Get-NotificationEmailBody -IpBlacklist:$ipBlacklist);
+                Body = (Get-NotificationEmailBody -IpBlocklist:$ipBlocklist);
                 From = $Config.GmailUser;
                 To = $Config.SendEmailTo;
                 Port = 587;
-                Subject = 'Firewall IP Blacklist Rule was Updated';
+                Subject = 'Firewall IP Blocklist Rule was Updated';
                 Credential = $cred;
                 UseSsl = $true;
             }
@@ -387,7 +387,7 @@ function Invoke-RdpIpRestrictionJob
 
     if([bool]($Config.Debug))
     {
-        Out-File -FilePath $Config.DebugFileName -InputObject ('IP Blacklist job finished at {0} and took {1} second(s)' -f $finish,$runtime) -Append;
+        Out-File -FilePath $Config.DebugFileName -InputObject ('IP Blocklist job finished at {0} and took {1} second(s)' -f $finish,$runtime) -Append;
     }
 }
 
